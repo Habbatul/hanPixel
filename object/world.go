@@ -11,6 +11,7 @@ func NewWorld(width, height int) *World {
 	}
 }
 
+// pakai box collider
 func (w *World) isColliding(playerX, playerY float64, obstacles []*Obstacle) bool {
 
 	for _, obstacle := range obstacles {
@@ -20,7 +21,7 @@ func (w *World) isColliding(playerX, playerY float64, obstacles []*Obstacle) boo
 		scaledHeight := obstacle.height * scaleFactor
 
 		if playerX > obstacle.x-scaledWidth/2 && playerX < obstacle.x+scaledWidth/2 &&
-			playerY > obstacle.y-scaledHeight/2-10 && playerY < obstacle.y+scaledHeight/2 {
+			playerY > obstacle.y-scaledHeight/2-10 && playerY < obstacle.y+scaledHeight/2-10 {
 			return true
 		}
 	}
