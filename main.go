@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"goHan/object"
-	"image/color"
 	"log"
 )
 
@@ -21,14 +20,14 @@ const (
 
 func NewGame() *Game {
 	return &Game{
-		player: object.NewPlayer(screenWidth/4, screenHeight/4),
-		camera: object.NewCamera(0, 0, screenWidth, screenHeight, 3),
-		world:  object.NewWorld(1279, 829),
+		player: object.NewPlayer(500, 500),
+		camera: object.NewCamera(0, 0, screenWidth, screenHeight, 2.8),
+		world:  object.NewWorld(650, 418),
 		obstacles: []*object.Obstacle{
-			object.NewObstacle(200, 200, "asset_obstacle/Water_ruins1.png"),
-			object.NewObstacle(350, 250, "asset_obstacle/Water_ruins2.png"),
-			object.NewObstacle(450, 350, "asset_obstacle/Water_ruins3.png"),
-			object.NewObstacle(250, 350, "asset_obstacle/Water_ruins4.png"),
+			object.NewObstacle(200, 100, "asset_obstacle/Water_ruins1.png"),
+			object.NewObstacle(350, 150, "asset_obstacle/Water_ruins2.png"),
+			object.NewObstacle(450, 250, "asset_obstacle/Water_ruins3.png"),
+			object.NewObstacle(250, 250, "asset_obstacle/Water_ruins4.png"),
 		},
 	}
 }
@@ -40,14 +39,16 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{255, 255, 255, 255})
+	g.world.Draw(screen, g.camera)
+
 	for _, obstacle := range g.obstacles {
 		obstacle.Draw(screen, g.camera)
 	}
+
 	g.player.Draw(screen, g.camera)
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (g *Game) Layout(int, int) (int, int) {
 	return screenWidth, screenHeight
 }
 

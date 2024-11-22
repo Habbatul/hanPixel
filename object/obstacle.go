@@ -3,7 +3,6 @@ package object
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"image/color"
 	"log"
 )
 
@@ -14,9 +13,10 @@ type Obstacle struct {
 }
 
 func NewObstacle(x, y float64, imagePath string) *Obstacle {
+
 	img, _, err := ebitenutil.NewImageFromFile(imagePath)
 	if err != nil {
-		log.Fatal(err) // Handle image loading error
+		log.Fatal(err)
 	}
 
 	width, height := float64(img.Bounds().Dx()), float64(img.Bounds().Dy())
@@ -30,45 +30,26 @@ func NewObstacle(x, y float64, imagePath string) *Obstacle {
 	}
 }
 
+func (o *Obstacle) isPixelColliding(px, py float64) bool {
+	localX := int(px - (o.x - o.width/2))
+	localY := int(py - (o.y - o.height/2))
+
+	if localX < 0 || localX >= int(o.width) || localY < 0 || localY >= int(o.height) {
+		return false
+	}
+
+	_, _, _, a := o.image.At(localX, localY).RGBA()
+
+	return a > 0
+}
+
 func (o *Obstacle) Draw(screen *ebiten.Image, camera *Camera) {
 	op := &ebiten.DrawImageOptions{}
+	scaleFactor := camera.zoomFactor
 
-	op.GeoM.Scale(camera.zoomFactor, camera.zoomFactor)
-	op.GeoM.Translate(-o.width/2*camera.zoomFactor, -o.height/2*camera.zoomFactor)
+	op.GeoM.Scale(scaleFactor, scaleFactor)
+	op.GeoM.Translate(-o.width/2*scaleFactor, -o.height/2*scaleFactor)
 	op.GeoM.Translate((o.x-camera.x)*camera.zoomFactor, (o.y-camera.y)*camera.zoomFactor)
 
 	screen.DrawImage(o.image, op)
-
-	lineColor := color.RGBA{255, 0, 0, 255}
-
-	scaledWidth := o.width * camera.zoomFactor
-	scaledHeight := o.height * camera.zoomFactor
-
-	ebitenutil.DrawLine(screen,
-		((o.x-camera.x)*camera.zoomFactor - scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor - scaledHeight/2),
-		((o.x-camera.x)*camera.zoomFactor + scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor - scaledHeight/2),
-		lineColor)
-
-	ebitenutil.DrawLine(screen,
-		((o.x-camera.x)*camera.zoomFactor - scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor + scaledHeight/2),
-		((o.x-camera.x)*camera.zoomFactor + scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor + scaledHeight/2),
-		lineColor)
-
-	ebitenutil.DrawLine(screen,
-		((o.x-camera.x)*camera.zoomFactor - scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor - scaledHeight/2),
-		((o.x-camera.x)*camera.zoomFactor - scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor + scaledHeight/2),
-		lineColor)
-
-	ebitenutil.DrawLine(screen,
-		((o.x-camera.x)*camera.zoomFactor + scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor - scaledHeight/2),
-		((o.x-camera.x)*camera.zoomFactor + scaledWidth/2),
-		((o.y-camera.y)*camera.zoomFactor + scaledHeight/2),
-		lineColor)
 }

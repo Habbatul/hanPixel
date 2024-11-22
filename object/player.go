@@ -24,7 +24,6 @@ type Player struct {
 	currentDir int
 }
 
-// Initialize Player
 func NewPlayer(screenWidth, screenHeight float64) *Player {
 	img, _, err := ebitenutil.NewImageFromFile("asset_sprite/player/Unarmed_walk_full.png")
 	if err != nil {
