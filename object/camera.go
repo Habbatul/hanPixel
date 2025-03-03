@@ -21,3 +21,11 @@ func (c *Camera) Update(player *Player) {
 	c.x = player.x - (c.screenWidth / 2 / c.zoomFactor)
 	c.y = player.y - (c.screenHeight / 2 / c.zoomFactor)
 }
+
+func (c *Camera) GetZoomFactor() float64 {
+	return c.zoomFactor
+}
+
+func (c *Camera) GetY() float64 {
+	return c.y
+}

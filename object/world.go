@@ -33,19 +33,7 @@ func (w *World) Draw(screen *ebiten.Image, camera *Camera) {
 	screen.DrawImage(w.background, op)
 }
 
-func (w *World) isColliding(playerX, playerY float64, obstacles []*Obstacle) bool {
-	for _, obstacle := range obstacles {
-		scaleFactor := 2.0
-		scaledWidth := obstacle.width * scaleFactor
-		scaledHeight := obstacle.height * scaleFactor
-
-		if playerX > obstacle.x-scaledWidth/2 && playerX < obstacle.x+scaledWidth/2 &&
-			playerY > obstacle.y-scaledHeight/2 && playerY < obstacle.y+scaledHeight/2 {
-			if obstacle.isPixelColliding(playerX, playerY+10) {
-				return true
-			}
-		}
-	}
-
-	return playerX < 0 || playerX > float64(w.width) || playerY < 0 || playerY > float64(w.height)
+func (w *World) isColliding(playerX, playerY float64) bool {
+	//tambah 12 untuk batasan arena pada koordinat x
+	return playerX < 12 || playerX > float64(w.width)-12 || playerY < 0 || playerY > float64(w.height)
 }

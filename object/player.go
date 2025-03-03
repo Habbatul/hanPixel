@@ -29,11 +29,12 @@ func NewPlayer(screenWidth, screenHeight float64) *Player {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Player{x: screenWidth / 4, y: screenHeight / 4, image: img}
+	return &Player{x: screenWidth / 4 * 2.8, y: screenHeight / 4 * 2.8, image: img}
 }
 
-func (p *Player) Update(world *World, obstacles []*Obstacle) {
+func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*SilentNpc, camera *Camera) {
 	dx, dy := 0.0, 0.0
+	log.Printf("X:%i Y:%i  ", p.x, p.y)
 	var direction int
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
 		dy = -speed
@@ -56,11 +57,56 @@ func (p *Player) Update(world *World, obstacles []*Obstacle) {
 		dx, dy = dx/length*speed, dy/length*speed
 	}
 
+	//mouse kursor - butuh kamera buat inisiasi dx,dy
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		mouseX, mouseY := ebiten.CursorPosition()
+
+		worldX := float64(mouseX)/camera.zoomFactor + camera.x
+		worldY := float64(mouseY)/camera.zoomFactor + camera.y
+
+		dx = worldX - p.x
+		dy = worldY - p.y
+
+		length := math.Hypot(dx, dy)
+		if length != 0 {
+			dx = dx / length * speed
+			dy = dy / length * speed
+		}
+
+		if dx > 0 && math.Abs(dy) < math.Abs(dx) {
+			direction = 2
+		} else if dx < 0 && math.Abs(dy) < math.Abs(dx) {
+			direction = 1
+		} else if dy > 0 && math.Abs(dx) < math.Abs(dy) {
+			direction = 0
+		} else if dy < 0 && math.Abs(dx) < math.Abs(dy) {
+			direction = 3
+		}
+	}
+
+	//cek collision world dan obstacle di X dan Y sebelum update posisi
 	newX, newY := p.x+dx, p.y+dy
-	if !world.isColliding(newX, p.y, obstacles) {
+	isColliding := func(x, y float64) bool {
+		if world.isColliding(x, y) {
+			return true
+		}
+		for _, obstacle := range obstacles {
+			if obstacle.isColliding(x, y, camera) {
+				return true
+			}
+		}
+
+		for _, silentNpc := range silentNpcs {
+			if silentNpc.isColliding(x, y, camera) {
+				return true
+			}
+		}
+		return false
+	}
+	if !isColliding(newX, p.y) {
 		p.x = newX
 	}
-	if !world.isColliding(p.x, newY, obstacles) {
+	if !isColliding(p.x, newY) {
 		p.y = newY
 	}
 
@@ -76,6 +122,13 @@ func (p *Player) Update(world *World, obstacles []*Obstacle) {
 	} else {
 		p.frameIndex = direction*6 + p.frameIndex%6
 	}
+}
+
+func (p *Player) GetX() float64 {
+	return p.x
+}
+func (p *Player) GetY() float64 {
+	return p.y
 }
 
 func (p *Player) Draw(screen *ebiten.Image, camera *Camera) {
