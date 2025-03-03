@@ -35,7 +35,7 @@ func (o *Obstacle) isPixelColliding(px, py float64) bool {
 	localY := int(py - (o.y - o.height/2))
 
 	//sesuaikan pgen berapa persen collision pixel yang dipakai
-	if float64(localY) < o.height-o.height/3.2 {
+	if float64(localY) < o.height-o.height/2.9 {
 		return false
 	}
 
