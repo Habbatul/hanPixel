@@ -3,6 +3,7 @@ package object
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"goHan/object/helper"
 	"image"
 	"log"
 )
@@ -17,9 +18,11 @@ type SilentNpc struct {
 	repeat         bool
 	npcFrameIndex  int64
 	npcX, npcY     float64 // Posisi NPC
+	flagShown      bool
+	textChat       []string
 }
 
-func NewSilentNpc(npcFrameWidth, npcFrameHeight, npcFrameCount, npcRadius int64, npcImagePath string, x, y float64) *SilentNpc {
+func NewSilentNpc(npcFrameWidth, npcFrameHeight, npcFrameCount, npcRadius int64, npcImagePath string, x, y float64, textChat []string) *SilentNpc {
 	npcImage, _, err := ebitenutil.NewImageFromFile(npcImagePath)
 	if err != nil {
 		log.Fatal(err)
@@ -33,6 +36,8 @@ func NewSilentNpc(npcFrameWidth, npcFrameHeight, npcFrameCount, npcRadius int64,
 		npcImage:       npcImage,
 		npcX:           x,
 		npcY:           y,
+		flagShown:      false,
+		textChat:       textChat,
 	}
 }
 
@@ -60,7 +65,7 @@ func (s *SilentNpc) isColliding(playerX, playerY float64, camera *Camera) bool {
 }
 
 func (s *SilentNpc) Update() {
-	log.Printf("X:%i Y:%i  ", s.npcX, s.npcY)
+	//log.Printf("X:%i Y:%i  ", s.npcX, s.npcY)
 	s.timer += 1.0 / 60.0
 	if s.timer >= 0.25 {
 		if !s.repeat {
@@ -75,6 +80,44 @@ func (s *SilentNpc) Update() {
 			}
 		}
 		s.timer = 0
+	}
+}
+
+func (s *SilentNpc) ShowTextWhenColliding(playerX, playerY float64, camera *Camera) {
+	offsetX := float64(s.npcFrameWidth) / 2
+	offsetY := float64(s.npcFrameHeight)/2 - 7
+	npcScreenX := ((-camera.x + s.npcX) + offsetX) * camera.zoomFactor
+	npcScreenY := ((-camera.y + s.npcY) + offsetY) * camera.zoomFactor
+
+	playerScreenX := (-camera.x + playerX) * camera.zoomFactor
+	playerScreenY := (-camera.y + playerY) * camera.zoomFactor
+
+	//scaledRadius (radius collision dilayar)
+	baseR := float64(s.npcRadius) * camera.zoomFactor
+
+	//perluas kotak collision buat proximity
+	r := baseR * 1.2
+
+	left := npcScreenX - r
+	right := npcScreenX + r
+	top := npcScreenY - r + 15
+	bottom := npcScreenY + r + 6
+
+	if playerScreenX >= left && playerScreenX <= right &&
+		playerScreenY >= top && playerScreenY <= bottom {
+
+		if !s.flagShown {
+			//log.Print("sudah dipanggil:")
+			helper.ShowText(s.textChat)
+			s.flagShown = true
+		}
+
+	} else {
+		//tutup textbox pas jauh
+		if helper.IsTextBoxVisible() && s.flagShown {
+			helper.HideText()
+			s.flagShown = false
+		}
 	}
 }
 

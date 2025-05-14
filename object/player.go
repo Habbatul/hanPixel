@@ -3,6 +3,7 @@ package object
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"goHan/object/helper"
 	"image"
 	"log"
 	"math"
@@ -34,7 +35,7 @@ func NewPlayer(screenWidth, screenHeight float64) *Player {
 
 func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*SilentNpc, camera *Camera) {
 	dx, dy := 0.0, 0.0
-	log.Printf("X:%i Y:%i  ", p.x, p.y)
+	//log.Printf("X:%i Y:%i  ", p.x, p.y)
 	var direction int
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
 		dy = -speed
@@ -57,32 +58,38 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 		dx, dy = dx/length*speed, dy/length*speed
 	}
 
-	//mouse kursor - butuh kamera buat inisiasi dx,dy
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		mouseX, mouseY := ebiten.CursorPosition()
+	if helper.IsCursorInBox() {
+		helper.HandleInput()
+		//return //blok input lainnya
+	} else {
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			mouseX, mouseY := ebiten.CursorPosition()
 
-		worldX := float64(mouseX)/camera.zoomFactor + camera.x
-		worldY := float64(mouseY)/camera.zoomFactor + camera.y
+			worldX := float64(mouseX)/camera.zoomFactor + camera.x
+			worldY := float64(mouseY)/camera.zoomFactor + camera.y
 
-		dx = worldX - p.x
-		dy = worldY - p.y
+			dx = worldX - p.x
+			dy = worldY - p.y
 
-		length := math.Hypot(dx, dy)
-		if length != 0 {
-			dx = dx / length * speed
-			dy = dy / length * speed
-		}
+			length := math.Hypot(dx, dy)
+			if length != 0 {
+				dx = dx / length * speed
+				dy = dy / length * speed
+			}
 
-		if dx > 0 && math.Abs(dy) < math.Abs(dx) {
-			direction = 2
-		} else if dx < 0 && math.Abs(dy) < math.Abs(dx) {
-			direction = 1
-		} else if dy > 0 && math.Abs(dx) < math.Abs(dy) {
-			direction = 0
-		} else if dy < 0 && math.Abs(dx) < math.Abs(dy) {
-			direction = 3
+			if dx > 0 && math.Abs(dy) < math.Abs(dx) {
+				direction = 2
+			} else if dx < 0 && math.Abs(dy) < math.Abs(dx) {
+				direction = 1
+			} else if dy > 0 && math.Abs(dx) < math.Abs(dy) {
+				direction = 0
+			} else if dy < 0 && math.Abs(dx) < math.Abs(dy) {
+				direction = 3
+			}
 		}
 	}
+
+	//mouse kursor - butuh kamera buat inisiasi dx,dy
 
 	//cek collision world dan obstacle di X dan Y sebelum update posisi
 	newX, newY := p.x+dx, p.y+dy

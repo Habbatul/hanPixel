@@ -1,8 +1,13 @@
 package main
 
 import (
+	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
 	"goHan/object"
+	"goHan/object/helper"
+	"image/color"
+	"os"
+
 	"log"
 )
 
@@ -31,9 +36,12 @@ func NewGame() *Game {
 			object.NewObstacle(280, 260, "asset_obstacle/Dark_totem_dark_shadow3.png"),
 		},
 		silentNpcs: []*object.SilentNpc{
-			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Asya_Idle_full.png", 100, 140),
-			object.NewSilentNpc(64, 64, 7, 12, "asset_sprite/idle_npc/Elicia_Idle_full.png", 173, 257),
-			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Sena_Idle_full.png", 386, 290),
+			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Asya_Idle_full.png", 100, 140,
+				[]string{"[[left]][[red]]Asya: [[white]]Welcome to our world my friend\n\n[[center]][[green]][Klick Box]", "[[center]][[red]]Asya: [[white]]This is my brother portofolio's game\n\n[[center]][[green]][Klick Box]"}),
+			object.NewSilentNpc(64, 64, 7, 12, "asset_sprite/idle_npc/Elicia_Idle_full.png", 173, 257,
+				[]string{"[[left]][[red]]Elicia: [[white]]@hq.han is my partner. He likes programming a lot\n\n[[center]][[green]][Klick Box]", "[[center]][[red]]Elicia: [[white]]Don't forget to give likes to this repo hihi\n\n[[center]][[green]][Klick Box]"}),
+			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Sena_Idle_full.png", 386, 290,
+				[]string{"[[left]][[red]]Sena: [[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[left]][[red]]Sena: [[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
 		},
 	}
 }
@@ -42,8 +50,12 @@ func (g *Game) Update() error {
 	g.player.Update(g.world, g.obstacles, g.silentNpcs, g.camera)
 	for _, silentNpc := range g.silentNpcs {
 		silentNpc.Update()
+		silentNpc.ShowTextWhenColliding(g.player.GetX(), g.player.GetY(), g.camera)
 	}
 	g.camera.Update(g.player)
+	helper.HandleInput()
+	//ngatasi bugh 2 kali panggil pakek flag
+	helper.ResetInputFlag()
 	return nil
 }
 
@@ -90,6 +102,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, d := range front {
 		d.Draw(screen, g.camera)
 	}
+
+	helper.DrawText(screen)
 }
 
 func (g *Game) Layout(int, int) (int, int) {
@@ -97,6 +111,13 @@ func (g *Game) Layout(int, int) (int, int) {
 }
 
 func main() {
+	fontBytes, _ := os.ReadFile("asset/Jersey10-Regular.ttf")
+	tt, _ := truetype.Parse(fontBytes)
+	face := truetype.NewFace(tt, &truetype.Options{Size: 20})
+
+	// InitText(font, x, y, textColor, bgColor, padding)
+	helper.InitText(face, 380, 400, color.White, color.Black, 13)
+
 	game := NewGame()
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("2D Game with Separated Objects")
