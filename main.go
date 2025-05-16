@@ -36,11 +36,11 @@ func NewGame() *Game {
 		},
 		silentNpcs: []*object.SilentNpc{
 			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Asya_Idle_full.png", 100, 140,
-				[]string{"[[left]][[red]]Asya: [[white]]Welcome to our world my friend\n\n[[center]][[green]][Klick Box]", "[[center]][[red]]Asya: [[white]]This is my brother portofolio's game\n\n[[center]][[green]][Klick Box]"}),
+				[]string{"[[left]][[red]]Asya:\n[[white]]Welcome to our world my friend\n\n[[center]][[green]][Klick Box]", "[[red]]Asya:\n[[white]]This is my brother portofolio's game\n\n[[center]][[green]][Klick Box]"}),
 			object.NewSilentNpc(64, 64, 7, 12, "asset_sprite/idle_npc/Elicia_Idle_full.png", 173, 257,
-				[]string{"[[left]][[red]]Elicia: [[white]]@hq.han is my partner. He likes programming a lot\n\n[[center]][[green]][Klick Box]", "[[center]][[red]]Elicia: [[white]]Don't forget to give likes to this repo hihi\n\n[[center]][[green]][Klick Box]"}),
+				[]string{"[[left]][[red]]Elicia:\n[[white]]@hq.han is my partner. He likes programming a lot\n\n[[center]][[green]][Klick Box]", "[[red]]Elicia:\n[[white]]Don't forget to give likes to this repo hihi\n\n[[center]][[green]][Klick Box]"}),
 			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Sena_Idle_full.png", 386, 290,
-				[]string{"[[left]][[red]]Sena: [[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[left]][[red]]Sena: [[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
+				[]string{"[[left]][[red]]Sena:\n[[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[red]]Sena:\n[[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
 		},
 	}
 }
@@ -115,7 +115,7 @@ var fontBytes []byte
 func main() {
 	//fontBytes, _ := os.ReadFile("asset/Jersey10-Regular.ttf")
 	tt, _ := truetype.Parse(fontBytes)
-	face := truetype.NewFace(tt, &truetype.Options{Size: 20})
+	face := truetype.NewFace(tt, &truetype.Options{Size: 18})
 
 	// InitText(font, x, y, textColor, bgColor, padding)
 	helper.InitText(face, 380, 400, color.White, color.Black, 13)

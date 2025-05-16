@@ -1,0 +1,57 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Install Go WASM Toolchain
+        run: |
+          echo "Installing WASM toolchain"
+          mkdir -p build
+          cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ./build/
+
+      - name: Build Ebiten game to WASM
+        run: |
+          GOOS=js GOARCH=wasm go build -o build/main.wasm
+
+      - name: Create HTML launcher
+        run: |
+          cat <<EOF > build/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Ebiten Game</title>
+          </head>
+          <body>
+            <script src="wasm_exec.js"></script>
+            <script>
+              const go = new Go();
+              WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+                go.run(result.instance);
+              });
+            </script>
+            <canvas id="canvas" width="640" height="480"></canvas>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
