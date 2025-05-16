@@ -1,13 +1,12 @@
 package main
 
 import (
+	_ "embed"
 	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
 	"goHan/object"
 	"goHan/object/helper"
 	"image/color"
-	"os"
-
 	"log"
 )
 
@@ -110,8 +109,11 @@ func (g *Game) Layout(int, int) (int, int) {
 	return screenWidth, screenHeight
 }
 
+//go:embed asset/Jersey10-Regular.ttf
+var fontBytes []byte
+
 func main() {
-	fontBytes, _ := os.ReadFile("asset/Jersey10-Regular.ttf")
+	//fontBytes, _ := os.ReadFile("asset/Jersey10-Regular.ttf")
 	tt, _ := truetype.Parse(fontBytes)
 	face := truetype.NewFace(tt, &truetype.Options{Size: 20})
 

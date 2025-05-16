@@ -50,6 +50,12 @@ func HideText() {
 	}
 }
 
+// menangani klik mouse atau touch untuk maju ke pesan berikutnya
+var inputHandled bool
+
+// flag buat deteksi touch di box
+var FlagTouchInBox bool
+
 func IsCursorInBox() bool {
 	if tb == nil || !tb.Visible || tb.Index >= len(tb.Messages) {
 		return false
@@ -71,8 +77,32 @@ func IsCursorInBox() bool {
 	return mx >= centerX && mx <= centerX+boxW && my >= centerY && my <= centerY+boxH
 }
 
-// menangani klik mouse atau touch untuk maju ke pesan berikutnya
-var inputHandled bool
+func IsPointInBox(x, y int) bool {
+	if tb == nil || !tb.Visible || tb.Index >= len(tb.Messages) {
+		return false
+	}
+
+	msg := tb.Messages[tb.Index]
+	bounds := text.BoundString(tb.Face, msg)
+	width := bounds.Dx()
+	height := bounds.Dy()
+	boxW := int(math.Ceil(float64(width))) + tb.Padding*2
+	boxH := int(math.Ceil(float64(height))) + tb.Padding*2
+
+	centerX := tb.X - boxW/2
+	centerY := tb.Y - boxH/2
+
+	return x >= centerX && x <= centerX+boxW && y >= centerY && y <= centerY+boxH
+}
+
+func advanceText() {
+	tb.Index++
+	if tb.Index >= len(tb.Messages) {
+		tb.Index = 0
+	}
+	log.Print("Index:", tb.Index)
+	inputHandled = true
+}
 
 func HandleInput() {
 	if tb == nil || !tb.Visible {
@@ -81,38 +111,26 @@ func HandleInput() {
 	if inputHandled {
 		return
 	}
-	//cek klik mouse
-	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && IsCursorInBox() {
-		tb.Index += 1
-		if tb.Index >= len(tb.Messages) {
-			tb.Index = 0
-		}
-		log.Print(tb.Index)
-		inputHandled = true
+	//desktop
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && IsCursorInBox() {
+		advanceText()
 		return
 	}
-
-	//cek touch dilepas, eksperimen harus e ga gini :')
-	var ids []ebiten.TouchID
-	ids = inpututil.AppendJustReleasedTouchIDs(ids)
-	for _, id := range ids {
+	//var touchIDs []ebiten.TouchID
+	//touchIDs = ebiten.AppendTouchIDs(touchIDs[:0])
+	//mobile
+	touchIDs := inpututil.JustPressedTouchIDs()
+	for _, id := range touchIDs {
 		x, y := ebiten.TouchPosition(id)
-		msg := tb.Messages[tb.Index]
-		bounds := text.BoundString(tb.Face, msg)
-		width := bounds.Dx()
-		height := bounds.Dy()
-		boxW := int(math.Ceil(float64(width))) + tb.Padding*2
-		boxH := int(math.Ceil(float64(height))) + tb.Padding*2
-
-		if x >= tb.X && x <= tb.X+boxW && y >= tb.Y && y <= tb.Y+boxH {
-			tb.Index++
-			if tb.Index >= len(tb.Messages) {
-				tb.Index = 0
-			}
-			inputHandled = true // Mark input as handled
-			break
+		if IsPointInBox(x, y) {
+			FlagTouchInBox = true
+			advanceText()
+			return
+		} else {
+			FlagTouchInBox = false
 		}
 	}
+
 }
 
 func ResetInputFlag() {

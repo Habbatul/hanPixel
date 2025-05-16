@@ -58,15 +58,28 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 		dx, dy = dx/length*speed, dy/length*speed
 	}
 
-	if helper.IsCursorInBox() {
+	if helper.IsCursorInBox() || helper.FlagTouchInBox {
 		helper.HandleInput()
 		//return //blok input lainnya
 	} else {
-		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			mouseX, mouseY := ebiten.CursorPosition()
+		//handle mouse klick dan touchscreen
+		var touchIDs []ebiten.TouchID
+		touchIDs = ebiten.AppendTouchIDs(touchIDs[:0])
 
-			worldX := float64(mouseX)/camera.zoomFactor + camera.x
-			worldY := float64(mouseY)/camera.zoomFactor + camera.y
+		var inputX, inputY int
+		hasInput := false
+
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			inputX, inputY = ebiten.CursorPosition()
+			hasInput = true
+		} else if len(touchIDs) > 0 {
+			inputX, inputY = ebiten.TouchPosition(touchIDs[0])
+			hasInput = true
+		}
+
+		if hasInput {
+			worldX := float64(inputX)/camera.zoomFactor + camera.x
+			worldY := float64(inputY)/camera.zoomFactor + camera.y
 
 			dx = worldX - p.x
 			dy = worldY - p.y
@@ -87,6 +100,7 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 				direction = 3
 			}
 		}
+
 	}
 
 	//mouse kursor - butuh kamera buat inisiasi dx,dy
