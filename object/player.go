@@ -26,7 +26,7 @@ type Player struct {
 }
 
 func NewPlayer(screenWidth, screenHeight float64) *Player {
-	img, _, err := ebitenutil.NewImageFromFile("asset_sprite/player/Unarmed_Walk_Full.png")
+	img, _, err := ebitenutil.NewImageFromFile("asset_sprite/player/Unarmed_Walk_full.png")
 	if err != nil {
 		log.Fatal(err)
 	}
