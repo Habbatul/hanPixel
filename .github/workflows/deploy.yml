@@ -28,6 +28,14 @@ jobs:
         run: |
           GOOS=js GOARCH=wasm go build -o build/main.wasm
 
+      - name: Copy assets to build folder
+        run: |
+          mkdir -p build/
+          cp -r asset build/
+          cp -r asset_obstacle build/
+          cp -r asset_sprite build/
+          cp -r asset_world build/
+
       - name: Create HTML launcher
         run: |
           cat <<EOF > build/index.html
