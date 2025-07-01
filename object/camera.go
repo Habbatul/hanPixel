@@ -29,3 +29,7 @@ func (c *Camera) GetZoomFactor() float64 {
 func (c *Camera) GetY() float64 {
 	return c.y
 }
+
+func (c *Camera) GetX() float64 {
+	return c.x
+}
