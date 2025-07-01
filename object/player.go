@@ -9,7 +9,7 @@ import (
 	"math"
 )
 
-const (
+var (
 	speed        = 1.2
 	frameWidth   = 64
 	frameHeight  = 64
@@ -26,7 +26,7 @@ type Player struct {
 }
 
 func NewPlayer(screenWidth, screenHeight float64) *Player {
-	img, _, err := ebitenutil.NewImageFromFile("asset_sprite/player/Unarmed_Walk_full.png")
+	img, _, err := ebitenutil.NewImageFromFile("game_asset/asset_sprite/player/Unarmed_Walk_full.png")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,6 +53,7 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 		dx = speed
 		direction = 2
 	}
+
 	if dx != 0 || dy != 0 {
 		length := math.Hypot(dx, dy)
 		dx, dy = dx/length*speed, dy/length*speed
@@ -84,6 +85,7 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 			dx = worldX - p.x
 			dy = worldY - p.y
 
+			//ketika pakek mouse & touch, kemungkinan dx atau dy itu selalu !=0 karena sangat susah presisi
 			length := math.Hypot(dx, dy)
 			if length != 0 {
 				dx = dx / length * speed
@@ -160,7 +162,7 @@ func (p *Player) Draw(screen *ebiten.Image, camera *Camera) {
 	scaleFactor := camera.zoomFactor
 	op.GeoM.Scale(scaleFactor, scaleFactor)
 
-	op.GeoM.Translate(-frameWidth/2*scaleFactor, -frameHeight/2*scaleFactor)
+	op.GeoM.Translate(float64(-frameWidth)/2*scaleFactor, float64(-frameHeight)/2*scaleFactor)
 	op.GeoM.Translate((p.x-camera.x)*camera.zoomFactor, (p.y-camera.y)*camera.zoomFactor)
 
 	screen.DrawImage(p.image.SubImage(sourceRect).(*ebiten.Image), op)

@@ -6,16 +6,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"goHan/object"
 	"goHan/object/helper"
+	"goHan/server"
 	"image/color"
 	"log"
+	"sort"
 )
 
 type Game struct {
-	player     *object.Player
-	camera     *object.Camera
-	world      *object.World
-	obstacles  []*object.Obstacle
-	silentNpcs []*object.SilentNpc
+	player        *object.Player
+	camera        *object.Camera
+	world         *object.World
+	obstacles     []*object.Obstacle
+	silentNpcs    []*object.SilentNpc
+	remotePlayers map[string]*object.RemotePlayer
 }
 
 const (
@@ -29,19 +32,20 @@ func NewGame() *Game {
 		camera: object.NewCamera(0, 0, screenWidth, screenHeight, 2.8),
 		world:  object.NewWorld(650, 400),
 		obstacles: []*object.Obstacle{
-			object.NewObstacle(200, 100, "asset_obstacle/Gates_dark_shadow3.png"),
-			object.NewObstacle(350, 150, "asset_obstacle/Water_ruins2.png"),
-			object.NewObstacle(450, 250, "asset_obstacle/Dark_totem_dark_shadow2.png"),
-			object.NewObstacle(280, 260, "asset_obstacle/Dark_totem_dark_shadow3.png"),
+			object.NewObstacle(200, 100, "game_asset/asset_obstacle/Gates_dark_shadow3.png"),
+			object.NewObstacle(350, 150, "game_asset/asset_obstacle/Water_ruins2.png"),
+			object.NewObstacle(450, 250, "game_asset/asset_obstacle/Dark_totem_dark_shadow2.png"),
+			object.NewObstacle(280, 260, "game_asset/asset_obstacle/Dark_totem_dark_shadow3.png"),
 		},
 		silentNpcs: []*object.SilentNpc{
-			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Asya_Idle_full.png", 100, 140,
+			object.NewSilentNpc(64, 64, 3, 12, "game_asset/asset_sprite/idle_npc/Asya_Idle_full.png", 100, 140,
 				[]string{"[[left]][[red]]Asya:\n[[white]]Welcome to our world my friend\n\n[[center]][[green]][Klick Box]", "[[red]]Asya:\n[[white]]This is my brother portofolio's game\n\n[[center]][[green]][Klick Box]"}),
-			object.NewSilentNpc(64, 64, 7, 12, "asset_sprite/idle_npc/Elicia_Idle_full.png", 173, 257,
+			object.NewSilentNpc(64, 64, 7, 12, "game_asset/asset_sprite/idle_npc/Elicia_Idle_full.png", 173, 257,
 				[]string{"[[left]][[red]]Elicia:\n[[white]]@hq.han is my partner. He likes programming a lot\n\n[[center]][[green]][Klick Box]", "[[red]]Elicia:\n[[white]]Don't forget to give likes to this repo hihi\n\n[[center]][[green]][Klick Box]"}),
-			object.NewSilentNpc(64, 64, 3, 12, "asset_sprite/idle_npc/Sena_Idle_full.png", 386, 290,
+			object.NewSilentNpc(64, 64, 3, 12, "game_asset/asset_sprite/idle_npc/Sena_Idle_full.png", 386, 290,
 				[]string{"[[left]][[red]]Sena:\n[[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[red]]Sena:\n[[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
 		},
+		remotePlayers: make(map[string]*object.RemotePlayer),
 	}
 }
 
@@ -53,55 +57,114 @@ func (g *Game) Update() error {
 	}
 	g.camera.Update(g.player)
 	helper.HandleInput()
-	//ngatasi bugh 2 kali panggil pakek flag
+	//ngatasi bugh 2 kali panggil (textbox) pakek flag
 	helper.ResetInputFlag()
+
+	//new features multiplayer
+	if ebiten.IsKeyPressed(ebiten.KeyM) && server.LocalPlayerID == "" {
+		if err := server.StartWebRTC(); err != nil {
+			log.Println("WebRTC start error:", err)
+		}
+	}
+
+	// Real-time P2P sync
+	if server.LocalPlayerID != "" {
+		// Kirim posisi lokal
+		server.SendPosition(g.player.GetX(), g.player.GetY())
+
+		// Ambil snapshot posisi remote
+		remotePos := server.GetRemotePositions()
+
+		// Update / tambah remote players
+		for id, pos := range remotePos {
+			if rp, ok := g.remotePlayers[id]; ok {
+				rp.UpdateAnimation(pos.X, pos.Y)
+				rp.SetX(pos.X)
+				rp.SetY(pos.Y)
+			} else {
+				g.remotePlayers[id] = object.NewRemotePlayer(pos.X, pos.Y)
+				log.Printf("New remote player %s at (%.2f, %.2f)", id, pos.X, pos.Y)
+			}
+		}
+
+		// Hapus remote players yg sudah tidak ada
+		for id := range g.remotePlayers {
+			if _, exists := remotePos[id]; !exists {
+				delete(g.remotePlayers, id)
+				log.Printf("Remote player %s removed", id)
+			}
+		}
+	}
+
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.world.Draw(screen, g.camera)
 
-	playerScreenY := (-g.camera.GetY() + g.player.GetY()) * g.camera.GetZoomFactor()
-
-	//mekanisme draw order
-	var behind []interface {
-		Draw(screen *ebiten.Image, camera *object.Camera)
-	}
-	var front []interface {
-		Draw(screen *ebiten.Image, camera *object.Camera)
+	// Struct bantu untuk menyimpan draw function dan Y untuk urutan gambar
+	type drawableEntity struct {
+		drawFunc   func(screen *ebiten.Image, camera *object.Camera)
+		drawOrderY float64
 	}
 
-	for _, silentNpc := range g.silentNpcs {
-		//aturnya cukup bdi pembagi silentNpc.GetFrameHeight()
-		npcCenterY := ((-g.camera.GetY() + silentNpc.GetY()) + float64(silentNpc.GetFrameHeight())/2) * g.camera.GetZoomFactor()
-		if playerScreenY > npcCenterY {
-			behind = append(behind, silentNpc)
-		} else {
-			front = append(front, silentNpc)
-		}
+	var entities []drawableEntity
+
+	// Obstacle
+	for _, obs := range g.obstacles {
+		threshold := obs.GetHeight() - obs.GetHeight()/2.6
+		drawY := obs.GetY() - obs.GetHeight()/2 + threshold
+		entities = append(entities, drawableEntity{
+			drawFunc: func(screen *ebiten.Image, camera *object.Camera) {
+				obs.Draw(screen, camera)
+			},
+			drawOrderY: drawY,
+		})
 	}
 
-	for _, obstacle := range g.obstacles {
-		//aturnya cukup bdi pembagi obstacle.GetHeight()
-		thresholdLocalY := obstacle.GetHeight() - obstacle.GetHeight()/2.6
-		obstacleWorldThresholdY := obstacle.GetY() - obstacle.GetHeight()/2 + thresholdLocalY
-		obstacleScreenThresholdY := (-g.camera.GetY() + obstacleWorldThresholdY) * g.camera.GetZoomFactor()
-		if playerScreenY > obstacleScreenThresholdY {
-			behind = append(behind, obstacle)
-		} else {
-			front = append(front, obstacle)
-		}
+	// Silent NPC
+	for _, npc := range g.silentNpcs {
+		drawY := npc.GetY() + float64(npc.GetFrameHeight())/2
+		entities = append(entities, drawableEntity{
+			drawFunc: func(screen *ebiten.Image, camera *object.Camera) {
+				npc.Draw(screen, camera)
+			},
+			drawOrderY: drawY,
+		})
 	}
 
-	for _, d := range behind {
-		d.Draw(screen, g.camera)
+	// Remote Players
+	for _, rp := range g.remotePlayers {
+		drawY := rp.GetY() + float64(8)/2
+		entities = append(entities, drawableEntity{
+			drawFunc: func(screen *ebiten.Image, camera *object.Camera) {
+				rp.Draw(screen, camera)
+			},
+			drawOrderY: drawY,
+		})
 	}
-	g.player.Draw(screen, g.camera)
 
-	for _, d := range front {
-		d.Draw(screen, g.camera)
+	// Local Player
+	playerDrawY := g.player.GetY() + float64(8)/2
+	entities = append(entities, drawableEntity{
+		drawFunc: func(screen *ebiten.Image, camera *object.Camera) {
+			g.player.Draw(screen, camera)
+		},
+		drawOrderY: playerDrawY,
+	})
+
+	// urutkan semua berdasarkan Y-nya (semakin kecil Y, semakin belakang)
+	sort.SliceStable(entities, func(i, j int) bool {
+		y1 := (-g.camera.GetY() + entities[i].drawOrderY) * g.camera.GetZoomFactor()
+		y2 := (-g.camera.GetY() + entities[j].drawOrderY) * g.camera.GetZoomFactor()
+		return y1 < y2
+	})
+
+	for _, e := range entities {
+		e.drawFunc(screen, g.camera)
 	}
 
+	// gambar UI atau dialog terakhir
 	helper.DrawText(screen)
 }
 
@@ -109,7 +172,7 @@ func (g *Game) Layout(int, int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-//go:embed asset/Jersey10-Regular.ttf
+//go:embed game_asset/asset/Jersey10-Regular.ttf
 var fontBytes []byte
 
 func main() {

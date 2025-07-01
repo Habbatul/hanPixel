@@ -12,7 +12,7 @@ type World struct {
 }
 
 func NewWorld(width, height int) *World {
-	bg, _, err := ebitenutil.NewImageFromFile("asset_world/main-world.png")
+	bg, _, err := ebitenutil.NewImageFromFile("game_asset/asset_world/main-world.png")
 	if err != nil {
 		log.Fatal(err)
 	}
