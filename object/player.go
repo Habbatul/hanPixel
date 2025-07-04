@@ -3,13 +3,14 @@ package object
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"goHan/object/gui"
 	"goHan/object/helper"
 	"image"
 	"log"
 	"math"
 )
 
-var (
+const (
 	speed        = 1.2
 	frameWidth   = 64
 	frameHeight  = 64
@@ -59,7 +60,7 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 		dx, dy = dx/length*speed, dy/length*speed
 	}
 
-	if helper.IsCursorInBox() || helper.FlagTouchInBox {
+	if helper.FlagTouchInBox || gui.IsCursorInWidget() {
 		helper.HandleInput()
 		//return //blok input lainnya
 	} else {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -244,6 +245,7 @@ func SendPosition(x float64, y float64) {
 				log.Println("peer dengan id :", peerID, "gagal mengirim")
 			}
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -255,4 +257,15 @@ func GetRemotePositions() map[string]Position {
 		positionCpy[key] = val
 	}
 	return positionCpy
+}
+
+func StartPositionAsyncDelaySender(getPos func() (float64, float64)) {
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			x, y := getPos()
+			SendPosition(x, y)
+		}
+	}()
 }

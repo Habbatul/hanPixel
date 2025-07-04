@@ -5,6 +5,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
 	"goHan/object"
+	"goHan/object/gui"
 	"goHan/object/helper"
 	"goHan/server"
 	"image/color"
@@ -19,6 +20,8 @@ type Game struct {
 	obstacles     []*object.Obstacle
 	silentNpcs    []*object.SilentNpc
 	remotePlayers map[string]*object.RemotePlayer
+
+	guiChat *gui.Chat
 }
 
 const (
@@ -46,31 +49,37 @@ func NewGame() *Game {
 				[]string{"[[left]][[red]]Sena:\n[[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[red]]Sena:\n[[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
 		},
 		remotePlayers: make(map[string]*object.RemotePlayer),
+		guiChat:       gui.NewChat([]gui.ChatMessage{{"asdasd", "asdasdasdasdsad"}}),
 	}
 }
 
 func (g *Game) Update() error {
+	g.guiChat.Update()
+
+	helper.HandleInput()
+
 	g.player.Update(g.world, g.obstacles, g.silentNpcs, g.camera)
 	for _, silentNpc := range g.silentNpcs {
 		silentNpc.Update()
 		silentNpc.ShowTextWhenColliding(g.player.GetX(), g.player.GetY(), g.camera)
 	}
 	g.camera.Update(g.player)
-	helper.HandleInput()
+
 	//ngatasi bugh 2 kali panggil (textbox) pakek flag
 	helper.ResetInputFlag()
 
 	//new features multiplayer
-	if ebiten.IsKeyPressed(ebiten.KeyM) && server.LocalPlayerID == "" {
+	if ebiten.IsKeyPressed(ebiten.KeyO) && server.LocalPlayerID == "" {
 		if err := server.StartWebRTC(); err != nil {
 			log.Println("WebRTC start error:", err)
 		}
 	}
 
+	//buat ketika button klick touch jalan baru dia send
 	// Real-time P2P sync
 	if server.LocalPlayerID != "" {
 		// Kirim posisi lokal
-		server.SendPosition(g.player.GetX(), g.player.GetY())
+		//server.SendPosition(g.player.GetX(), g.player.GetY())
 
 		// Ambil snapshot posisi remote
 		remotePos := server.GetRemotePositions()
@@ -95,6 +104,8 @@ func (g *Game) Update() error {
 			}
 		}
 	}
+
+	//update realtime chat display
 
 	return nil
 }
@@ -166,13 +177,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// gambar UI atau dialog terakhir
 	helper.DrawText(screen)
+
+	//gambar ui untuk chat
+	g.guiChat.Draw(screen)
 }
 
 func (g *Game) Layout(int, int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-//go:embed game_asset/asset/Jersey10-Regular.ttf
+//go:embed game_asset\asset\Jersey10-Regular.ttf
 var fontBytes []byte
 
 func main() {
@@ -184,6 +198,12 @@ func main() {
 	helper.InitText(face, 380, 400, color.White, color.Black, 13)
 
 	game := NewGame()
+
+	//send async
+	server.StartPositionAsyncDelaySender(func() (float64, float64) {
+		return game.player.GetX(), game.player.GetY()
+	})
+
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("2D Game with Separated Objects")
 	if err := ebiten.RunGame(game); err != nil {

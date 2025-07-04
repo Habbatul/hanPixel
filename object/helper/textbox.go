@@ -112,14 +112,21 @@ func HandleInput() {
 		return
 	}
 	//desktop
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && IsCursorInBox() {
-		advanceText()
-		return
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		if IsCursorInBox() {
+			FlagTouchInBox = true
+			advanceText()
+			return
+		} else {
+			FlagTouchInBox = false
+		}
 	}
+
 	//var touchIDs []ebiten.TouchID
 	//touchIDs = ebiten.AppendTouchIDs(touchIDs[:0])
 	//mobile
-	touchIDs := inpututil.JustPressedTouchIDs()
+	//touchIDs := inpututil.JustPressedTouchIDs()
+	touchIDs := inpututil.AppendJustPressedTouchIDs(nil)
 	for _, id := range touchIDs {
 		x, y := ebiten.TouchPosition(id)
 		if IsPointInBox(x, y) {
