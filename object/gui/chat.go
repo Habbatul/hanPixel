@@ -8,7 +8,9 @@ import (
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	imageStd "image"
 	"image/color"
 	"strings"
 )
@@ -34,8 +36,11 @@ const (
 	maxCharsPerLine = 43 // cek pakek meassure
 )
 
-//go:embed ..\..\game_asset\asset\JetBrainsMonoNL-Regular.ttf
-var jetbrainsMonoTTF []byte
+var (
+	//go:embed ..\..\game_asset\asset\JetBrainsMonoNL-Regular.ttf
+	jetbrainsMonoTTF []byte
+	onMessageHandler func(msg string)
+)
 
 func defaultFace(size float64) text.Face {
 	src, err := text.NewGoTextFaceSource(bytes.NewReader(jetbrainsMonoTTF))
@@ -45,13 +50,11 @@ func defaultFace(size float64) text.Face {
 	return &text.GoTextFace{Source: src, Size: size}
 }
 
-var textArea *widget.TextArea
-
 func NewChat(initial []ChatMessage) *Chat {
 	face := defaultFace(fontSize)
 	c := &Chat{messages: initial, face: face}
 
-	textArea = widget.NewTextArea(
+	c.textArea = widget.NewTextArea(
 		widget.TextAreaOpts.ContainerOpts(widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				MaxHeight: histH,
@@ -83,7 +86,6 @@ func NewChat(initial []ChatMessage) *Chat {
 		widget.TextAreaOpts.FontColor(color.White),
 		widget.TextAreaOpts.TextPadding(widget.Insets{Right: 15}),
 	)
-	c.textArea = textArea
 
 	c.input = widget.NewTextInput(
 		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.MinSize(inputW, inputH)),
@@ -110,13 +112,15 @@ func NewChat(initial []ChatMessage) *Chat {
 			if txt == "" {
 				return
 			}
-			c.messages = append(c.messages, ChatMessage{"Player", txt})
+			c.messages = append(c.messages, ChatMessage{"You", txt})
 			c.input.SetText("")
 			c.updateChat()
+
+			if onMessageHandler != nil {
+				onMessageHandler(txt)
+			}
 		}),
 	)
-
-	// TODO : cari cara yang lebiih elegan tanpa memaksa isi nul agar tidak intervensi touch/cursor
 
 	toggleBtnClicked := true
 	toggleBtn := widget.NewButton(
@@ -128,10 +132,9 @@ func NewChat(initial []ChatMessage) *Chat {
 			if toggleBtnClicked {
 				c.ui.Container.RemoveChild(c.textArea)
 				toggleBtnClicked = false
-				c.textArea = nil
+				c.textArea.GetWidget().Rect = imageStd.Rectangle{}
 				this.Button.Text().Label = "Show"
 			} else {
-				c.textArea = textArea
 				c.ui.Container.RemoveChild(c.bottomLayout)
 				c.ui.Container.AddChild(c.textArea)
 				c.ui.Container.AddChild(c.bottomLayout)
@@ -180,23 +183,9 @@ func (c *Chat) updateChat() {
 		}
 	}
 
-	//hapus array messages yang tidak digunakan
-	if len(c.messages) > maxMessages {
-		trimmed := make([]ChatMessage, maxMessages)
-		copy(trimmed, c.messages[len(c.messages)-maxMessages:])
-		c.messages = trimmed
-	}
+	c.textArea.SetText(result.String())
 
-	//c.textArea.SetText(result.String())
-	//anti nil pointer
-	if c.textArea == nil {
-		c.textArea = textArea
-		c.textArea.SetText(result.String())
-		c.textArea = nil
-	} else {
-		c.textArea.SetText(result.String())
-	}
-
+	c.deleteExceedMsg()
 }
 
 func (c *Chat) wrappedText(text string, maxLength int) []string {
@@ -213,28 +202,38 @@ func (c *Chat) wrappedText(text string, maxLength int) []string {
 	return result
 }
 
-// TODO : perbaiki agar tidak mengintervensi kontroler touch/kursor
+func (c *Chat) deleteExceedMsg() {
+	if len(c.messages) > maxMessages {
+		trimmed := make([]ChatMessage, maxMessages)
+		copy(trimmed, c.messages[len(c.messages)-maxMessages:])
+		c.messages = trimmed
+	}
+}
+
 func (c *Chat) Update() {
 	c.ui.Update()
 
-	mouseX, mouseY := ebiten.CursorPosition()
-
-	touchIDs := ebiten.AppendTouchIDs(nil)
-	for _, id := range touchIDs {
-		mouseX, mouseY = ebiten.TouchPosition(id)
-	}
-
-	var gui1 *widget.Widget = nil
-	if c.textArea != nil {
-		gui1 = c.textArea.GetWidget()
-	}
-
+	gui1 := c.textArea.GetWidget()
 	gui2 := c.bottomLayout.GetWidget()
 
-	if (gui1 != nil && gui1.In(mouseX, mouseY)) || gui2.In(mouseX, mouseY) {
-		flagMouseInWidget = true
-	} else {
-		flagMouseInWidget = false
+	touchIDsPressed := inpututil.AppendJustPressedTouchIDs(nil)
+	for _, id := range touchIDsPressed {
+		mouseX, mouseY := ebiten.TouchPosition(id)
+
+		if gui1.In(mouseX, mouseY) || gui2.In(mouseX, mouseY) {
+			flagMouseInWidget = true
+		} else {
+			flagMouseInWidget = false
+		}
+	}
+
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		mouseX, mouseY := ebiten.CursorPosition()
+		if gui1.In(mouseX, mouseY) || gui2.In(mouseX, mouseY) {
+			flagMouseInWidget = true
+		} else {
+			flagMouseInWidget = false
+		}
 	}
 
 }
@@ -247,4 +246,14 @@ var flagMouseInWidget = false
 
 func IsCursorInWidget() bool {
 	return flagMouseInWidget
+}
+
+func (c *Chat) AddMessage(playerID string, msg string) {
+	c.messages = append(c.messages, ChatMessage{playerID, msg})
+	c.updateChat()
+	c.deleteExceedMsg()
+}
+
+func (c *Chat) RegisterMessageHandler(handler func(msg string)) {
+	onMessageHandler = handler
 }

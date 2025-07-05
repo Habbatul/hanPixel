@@ -65,7 +65,7 @@ func (g *Game) Update() error {
 	}
 	g.camera.Update(g.player)
 
-	//ngatasi bugh 2 kali panggil (textbox) pakek flag
+	//ngatasi bugh 2 kali pidah text (textbox) pakek flag
 	helper.ResetInputFlag()
 
 	//new features multiplayer
@@ -76,15 +76,10 @@ func (g *Game) Update() error {
 	}
 
 	//buat ketika button klick touch jalan baru dia send
-	// Real-time P2P sync
 	if server.LocalPlayerID != "" {
-		// Kirim posisi lokal
-		//server.SendPosition(g.player.GetX(), g.player.GetY())
+		server.SendPosition(g.player.GetX(), g.player.GetY())
 
-		// Ambil snapshot posisi remote
 		remotePos := server.GetRemotePositions()
-
-		// Update / tambah remote players
 		for id, pos := range remotePos {
 			if rp, ok := g.remotePlayers[id]; ok {
 				rp.UpdateAnimation(pos.X, pos.Y)
@@ -96,7 +91,7 @@ func (g *Game) Update() error {
 			}
 		}
 
-		// Hapus remote players yg sudah tidak ada
+		//hapus remote players yg sudah tidak ada
 		for id := range g.remotePlayers {
 			if _, exists := remotePos[id]; !exists {
 				delete(g.remotePlayers, id)
@@ -105,7 +100,9 @@ func (g *Game) Update() error {
 		}
 	}
 
-	//update realtime chat display
+	server.GetChat(func(chatID string, chatText string) {
+		g.guiChat.AddMessage("OtherPlayer", chatText)
+	})
 
 	return nil
 }
@@ -113,7 +110,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.world.Draw(screen, g.camera)
 
-	// Struct bantu untuk menyimpan draw function dan Y untuk urutan gambar
+	//wadah urutan Draw berdasarkan sumbu Y
 	type drawableEntity struct {
 		drawFunc   func(screen *ebiten.Image, camera *object.Camera)
 		drawOrderY float64
@@ -178,7 +175,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// gambar UI atau dialog terakhir
 	helper.DrawText(screen)
 
-	//gambar ui untuk chat
+	// gambar ui untuk chat
 	g.guiChat.Draw(screen)
 }
 
@@ -190,18 +187,14 @@ func (g *Game) Layout(int, int) (int, int) {
 var fontBytes []byte
 
 func main() {
-	//fontBytes, _ := os.ReadFile("asset/Jersey10-Regular.ttf")
 	tt, _ := truetype.Parse(fontBytes)
 	face := truetype.NewFace(tt, &truetype.Options{Size: 18})
-
-	// InitText(font, x, y, textColor, bgColor, padding)
 	helper.InitText(face, 380, 400, color.White, color.Black, 13)
 
 	game := NewGame()
 
-	//send async
-	server.StartPositionAsyncDelaySender(func() (float64, float64) {
-		return game.player.GetX(), game.player.GetY()
+	game.guiChat.RegisterMessageHandler(func(msg string) {
+		server.SendChat(msg)
 	})
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)

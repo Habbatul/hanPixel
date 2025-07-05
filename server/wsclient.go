@@ -15,17 +15,29 @@ import (
 var (
 	signalConn      *websocket.Conn
 	peerConns       = make(map[string]*webrtc.PeerConnection)
-	dataChans       = make(map[string]*webrtc.DataChannel)
+	dataChans       = make(map[string]*DataChannel)
 	LocalPlayerID   string
 	remotePositions = make(map[string]Position)
 	positionsMux    sync.Mutex
 	connsMux        sync.Mutex
+
+	chatChan = make(chan Chat)
 )
+
+type DataChannel struct {
+	position *webrtc.DataChannel
+	chat     *webrtc.DataChannel
+}
 
 type Position struct {
 	ID string  `json:"id"`
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
+}
+
+type Chat struct {
+	ID       string `json:"id"`
+	ChatText string `json:"chatText"`
 }
 
 type SignalMessage struct {
@@ -147,17 +159,32 @@ func createPeerConnection(remoteID string, typeMessage string) error {
 		}
 	})
 
+	dataChans[remoteID] = &DataChannel{}
+
 	if typeMessage == "offer" {
-		dc, err := pc.CreateDataChannel("position", nil)
+		dcPos, err := pc.CreateDataChannel("position", nil)
 		if err != nil {
 			return err
 		}
-		setupDataChannel(remoteID, dc)
-		dataChans[remoteID] = dc
+		setupDataChannelPos(remoteID, dcPos)
+		dataChans[remoteID].position = dcPos
+
+		dcChat, err := pc.CreateDataChannel("chat", nil)
+		if err != nil {
+			return err
+		}
+		setupDataChannelChat(remoteID, dcChat)
+		dataChans[remoteID].chat = dcChat
 	} else {
 		pc.OnDataChannel(func(dc *webrtc.DataChannel) {
-			setupDataChannel(remoteID, dc)
-			dataChans[remoteID] = dc
+			if dc.Label() == "position" {
+				setupDataChannelPos(remoteID, dc)
+				dataChans[remoteID].position = dc
+			}
+			if dc.Label() == "chat" {
+				setupDataChannelChat(remoteID, dc)
+				dataChans[remoteID].chat = dc
+			}
 		})
 	}
 
@@ -180,7 +207,12 @@ func removePeer(remoteID string) {
 	defer connsMux.Unlock()
 
 	if dc, exist := dataChans[remoteID]; exist {
-		dc.Close()
+		if dc.position != nil {
+			dc.position.Close()
+		}
+		if dc.chat != nil {
+			dc.chat.Close()
+		}
 		delete(dataChans, remoteID)
 	}
 	if pc, exist := peerConns[remoteID]; exist {
@@ -193,7 +225,7 @@ func removePeer(remoteID string) {
 	positionsMux.Unlock()
 }
 
-func setupDataChannel(remoteID string, dc *webrtc.DataChannel) {
+func setupDataChannelPos(remoteID string, dc *webrtc.DataChannel) {
 	dc.OnOpen(func() {
 		log.Println("data channel dengan ", remoteID, " dibuka")
 	})
@@ -207,6 +239,24 @@ func setupDataChannel(remoteID string, dc *webrtc.DataChannel) {
 		positionsMux.Lock()
 		remotePositions[pos.ID] = pos
 		positionsMux.Unlock()
+	})
+}
+
+func setupDataChannelChat(remoteID string, dc *webrtc.DataChannel) {
+	dc.OnOpen(func() {
+		log.Println("data channel dengan ", remoteID, " dibuka")
+	})
+
+	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		var chat Chat
+		if err := json.Unmarshal(msg.Data, &chat); err != nil {
+			log.Println("unmarshal pesan data channel gagal")
+			return
+		}
+		if chat.ChatText != "" {
+			chatChan <- chat
+		}
+
 	})
 }
 
@@ -239,13 +289,12 @@ func SendPosition(x float64, y float64) {
 	defer connsMux.Unlock()
 
 	for peerID, datChan := range dataChans {
-		if datChan.ReadyState() == webrtc.DataChannelStateOpen {
-			err := datChan.SendText(string(data))
+		if datChan.position != nil && datChan.position.ReadyState() == webrtc.DataChannelStateOpen {
+			err := datChan.position.Send(data)
 			if err != nil {
 				log.Println("peer dengan id :", peerID, "gagal mengirim")
 			}
 		}
-		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -257,6 +306,32 @@ func GetRemotePositions() map[string]Position {
 		positionCpy[key] = val
 	}
 	return positionCpy
+}
+
+func SendChat(chatText string) {
+	chat := &Chat{ID: LocalPlayerID, ChatText: chatText}
+	data, _ := json.Marshal(chat)
+
+	connsMux.Lock()
+	connsMux.Unlock()
+
+	for _, dataChan := range dataChans {
+		if dataChan.chat != nil && dataChan.chat.ReadyState() == webrtc.DataChannelStateOpen {
+			err := dataChan.chat.Send(data)
+			if err != nil {
+				log.Println("error kirim chat :", err)
+			}
+		}
+	}
+}
+
+func GetChat(readerChat func(chatID string, chatText string)) {
+	select {
+	case chat := <-chatChan:
+		readerChat(chat.ID, chat.ChatText)
+	default:
+		return
+	}
 }
 
 func StartPositionAsyncDelaySender(getPos func() (float64, float64)) {
