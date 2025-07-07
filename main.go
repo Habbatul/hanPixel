@@ -68,18 +68,20 @@ func (g *Game) Update() error {
 	//ngatasi bugh 2 kali pidah text (textbox) pakek flag
 	helper.ResetInputFlag()
 
-	//new features multiplayer
-	if ebiten.IsKeyPressed(ebiten.KeyO) && server.LocalPlayerID == "" {
-		if err := server.StartWebRTC(); err != nil {
-			log.Println("WebRTC start error:", err)
-		}
-	}
-
-	//buat ketika button klick touch jalan baru dia send
 	if server.LocalPlayerID != "" {
-		server.SendPosition(g.player.GetX(), g.player.GetY())
-
 		remotePos := server.GetRemotePositions()
+
+		//jalankan sekali saat pertama datachannel open
+		server.OnceOnConnect(func() {
+			log.Println("sudah dikirm boss")
+			server.SendPosition(g.player.GetX(), g.player.GetY())
+		})
+
+		//kalo ada input dari local
+		g.player.OnLocalPlayerInput(func() {
+			server.SendPosition(g.player.GetX(), g.player.GetY())
+		})
+
 		for id, pos := range remotePos {
 			if rp, ok := g.remotePlayers[id]; ok {
 				rp.UpdateAnimation(pos.X, pos.Y)
@@ -90,18 +92,20 @@ func (g *Game) Update() error {
 				log.Printf("New remote player %s at (%.2f, %.2f)", id, pos.X, pos.Y)
 			}
 		}
+	}
 
-		//hapus remote players yg sudah tidak ada
+	//hapus player yang kosong jika ada koneksi kematian
+	server.OnRemovePeer(func() {
+		remotePos := server.GetRemotePositions()
 		for id := range g.remotePlayers {
 			if _, exists := remotePos[id]; !exists {
 				delete(g.remotePlayers, id)
-				log.Printf("Remote player %s removed", id)
 			}
 		}
-	}
+	})
 
 	server.GetChat(func(chatID string, chatText string) {
-		g.guiChat.AddMessage("OtherPlayer", chatText)
+		g.guiChat.AddMessage("OtherPlayer"+chatID[:2], chatText)
 	})
 
 	return nil
@@ -195,6 +199,18 @@ func main() {
 
 	game.guiChat.RegisterMessageHandler(func(msg string) {
 		server.SendChat(msg)
+	})
+
+	game.guiChat.RegisterOnButtonConnHandler(func(isConn bool) {
+		if server.LocalPlayerID == "" && isConn == false {
+			if err := server.StartWebRTC(); err != nil {
+				log.Println("WebRTC start error:", err)
+			}
+		} else {
+			if err := server.StopWebRTC(); err != nil {
+				log.Println("WebRTC start error:", err)
+			}
+		}
 	})
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)

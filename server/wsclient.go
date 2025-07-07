@@ -22,6 +22,9 @@ var (
 	connsMux        sync.Mutex
 
 	chatChan = make(chan Chat)
+
+	peerRemoved       = false
+	dataChanPosOnOpen = false
 )
 
 type DataChannel struct {
@@ -223,10 +226,13 @@ func removePeer(remoteID string) {
 	positionsMux.Lock()
 	delete(remotePositions, remoteID)
 	positionsMux.Unlock()
+
+	peerRemoved = true
 }
 
 func setupDataChannelPos(remoteID string, dc *webrtc.DataChannel) {
 	dc.OnOpen(func() {
+		dataChanPosOnOpen = true
 		log.Println("data channel dengan ", remoteID, " dibuka")
 	})
 
@@ -343,4 +349,38 @@ func StartPositionAsyncDelaySender(getPos func() (float64, float64)) {
 			SendPosition(x, y)
 		}
 	}()
+}
+
+func StopWebRTC() error {
+	if signalConn != nil {
+		err := signalConn.Close(websocket.StatusNormalClosure, "WebRTC stopped")
+		if err != nil {
+			return err
+		}
+		signalConn = nil
+	}
+
+	for key, _ := range peerConns {
+		removePeer(key)
+		log.Println(key)
+	}
+
+	LocalPlayerID = ""
+	log.Println("WebRTC stopped.")
+	return nil
+}
+
+func OnRemovePeer(handler func()) {
+	if peerRemoved {
+		handler()
+		peerRemoved = false
+	}
+}
+
+func OnceOnConnect(handler func()) {
+	log.Println(dataChanPosOnOpen)
+	if dataChanPosOnOpen {
+		handler()
+		dataChanPosOnOpen = false
+	}
 }

@@ -24,6 +24,8 @@ type Player struct {
 	frameIndex int
 	timer      float64
 	currentDir int
+
+	isOnInput bool
 }
 
 func NewPlayer(screenWidth, screenHeight float64) *Player {
@@ -143,8 +145,11 @@ func (p *Player) Update(world *World, obstacles []*Obstacle, silentNpcs []*Silen
 	}
 	if dx == 0 && dy == 0 {
 		p.frameIndex = 3
+		//isOnInput buat trigger handler
+		p.isOnInput = false
 	} else {
 		p.frameIndex = direction*6 + p.frameIndex%6
+		p.isOnInput = true
 	}
 }
 
@@ -167,4 +172,10 @@ func (p *Player) Draw(screen *ebiten.Image, camera *Camera) {
 	op.GeoM.Translate((p.x-camera.x)*camera.zoomFactor, (p.y-camera.y)*camera.zoomFactor)
 
 	screen.DrawImage(p.image.SubImage(sourceRect).(*ebiten.Image), op)
+}
+
+func (p *Player) OnLocalPlayerInput(handler func()) {
+	if p.isOnInput {
+		handler()
+	}
 }

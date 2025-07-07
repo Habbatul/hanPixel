@@ -38,8 +38,9 @@ const (
 
 var (
 	//go:embed ..\..\game_asset\asset\JetBrainsMonoNL-Regular.ttf
-	jetbrainsMonoTTF []byte
-	onMessageHandler func(msg string)
+	jetbrainsMonoTTF    []byte
+	onMessageHandler    func(msg string)
+	onButtonConnHandler func(isConn bool)
 )
 
 func defaultFace(size float64) text.Face {
@@ -144,6 +145,24 @@ func NewChat(initial []ChatMessage) *Chat {
 		}),
 	)
 
+	connBtnClicked := true
+	startConnButton := widget.NewButton(
+		widget.ButtonOpts.WidgetOpts(widget.WidgetOpts.MinSize(btnW, btnH)),
+		widget.ButtonOpts.Image(buttonImage),
+		widget.ButtonOpts.TextPadding(widget.Insets{Right: 15, Left: 15}),
+		widget.ButtonOpts.Text("Connect", face, &widget.ButtonTextColor{Idle: color.White}),
+		widget.ButtonOpts.ClickedHandler(func(this *widget.ButtonClickedEventArgs) {
+			if connBtnClicked {
+				this.Button.Text().Label = "Disconnect"
+				connBtnClicked = false
+			} else {
+				this.Button.Text().Label = "Connect"
+				connBtnClicked = true
+			}
+			onButtonConnHandler(connBtnClicked)
+		}),
+	)
+
 	c.bottomLayout = widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Spacing(gap),
@@ -153,6 +172,7 @@ func NewChat(initial []ChatMessage) *Chat {
 	c.bottomLayout.AddChild(c.input)
 	c.bottomLayout.AddChild(sendBtn)
 	c.bottomLayout.AddChild(toggleBtn)
+	c.bottomLayout.AddChild(startConnButton)
 
 	rootContainer := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -256,4 +276,8 @@ func (c *Chat) AddMessage(playerID string, msg string) {
 
 func (c *Chat) RegisterMessageHandler(handler func(msg string)) {
 	onMessageHandler = handler
+}
+
+func (c *Chat) RegisterOnButtonConnHandler(handler func(isConn bool)) {
+	onButtonConnHandler = handler
 }
