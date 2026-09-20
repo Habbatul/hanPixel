@@ -25,6 +25,9 @@ var (
 
 	peerRemoved       = false
 	dataChanPosOnOpen = false
+
+	posChan          = make(chan Position)
+	posRemovedIDChan = make(chan string, 1)
 )
 
 type DataChannel struct {
@@ -56,7 +59,7 @@ func StartWebRTC() error {
 	ctx := context.Background()
 	var err error
 
-	signalConn, _, err = websocket.Dial(ctx, "ws://localhost:8080/signal", nil)
+	signalConn, _, err = websocket.Dial(ctx, "ws://192.168.0.111:8080/signal", nil)
 	if err != nil {
 		return err
 	}
@@ -223,9 +226,10 @@ func removePeer(remoteID string) {
 		delete(peerConns, remoteID)
 	}
 
-	positionsMux.Lock()
-	delete(remotePositions, remoteID)
-	positionsMux.Unlock()
+	//positionsMux.Lock()
+	//delete(remotePositions, remoteID)
+	//positionsMux.Unlock()
+	posRemovedIDChan <- remoteID
 
 	peerRemoved = true
 }
@@ -242,9 +246,12 @@ func setupDataChannelPos(remoteID string, dc *webrtc.DataChannel) {
 			log.Println("unmarshal pesan data channel gagal")
 			return
 		}
-		positionsMux.Lock()
-		remotePositions[pos.ID] = pos
-		positionsMux.Unlock()
+		//positionsMux.Lock()
+		//remotePositions[pos.ID] = pos
+		//positionsMux.Unlock()
+		if posChan != nil {
+			posChan <- pos
+		}
 	})
 }
 
@@ -304,14 +311,26 @@ func SendPosition(x float64, y float64) {
 	}
 }
 
-func GetRemotePositions() map[string]Position {
-	positionsMux.Lock()
-	defer positionsMux.Unlock()
-	positionCpy := make(map[string]Position)
-	for key, val := range remotePositions {
-		positionCpy[key] = val
+// TODO: Sepertinya bikin alokasi memory tinggi stiap frame dan lock contetion
+//func GetRemotePositions() map[string]Position {
+//	positionsMux.Lock()
+//	defer positionsMux.Unlock()
+//	positionCpy := make(map[string]Position)
+//	for key, val := range remotePositions {
+//		positionCpy[key] = val
+//	}
+//	return positionCpy
+//}
+
+func GetRemotePositionsWithChannel(posGetHandler func(pos Position)) {
+	for {
+		select {
+		case pos := <-posChan:
+			posGetHandler(pos)
+		default:
+			return
+		}
 	}
-	return positionCpy
 }
 
 func SendChat(chatText string) {
@@ -319,7 +338,7 @@ func SendChat(chatText string) {
 	data, _ := json.Marshal(chat)
 
 	connsMux.Lock()
-	connsMux.Unlock()
+	defer connsMux.Unlock()
 
 	for _, dataChan := range dataChans {
 		if dataChan.chat != nil && dataChan.chat.ReadyState() == webrtc.DataChannelStateOpen {
@@ -370,15 +389,22 @@ func StopWebRTC() error {
 	return nil
 }
 
-func OnRemovePeer(handler func()) {
-	if peerRemoved {
-		handler()
-		peerRemoved = false
+func OnRemovePeer(handler func(remoteIDRemoved string)) {
+
+	//if peerRemoved {
+	select {
+	case remoteID := <-posRemovedIDChan:
+		handler(remoteID)
+	default:
 	}
+	//posRemovedIDChan
+	//	handler()
+	//	peerRemoved = false
+	//}
 }
 
 func OnceOnConnect(handler func()) {
-	log.Println(dataChanPosOnOpen)
+	//log.Println(dataChanPosOnOpen)
 	if dataChanPosOnOpen {
 		handler()
 		dataChanPosOnOpen = false

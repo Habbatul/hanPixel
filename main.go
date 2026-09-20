@@ -10,8 +10,10 @@ import (
 	"goHan/server"
 	"image/color"
 	"log"
+	"net/http"
 	"sort"
 )
+import _ "net/http/pprof"
 
 type Game struct {
 	player        *object.Player
@@ -22,6 +24,8 @@ type Game struct {
 	remotePlayers map[string]*object.RemotePlayer
 
 	guiChat *gui.Chat
+
+	rp map[string]server.Position
 }
 
 const (
@@ -49,7 +53,7 @@ func NewGame() *Game {
 				[]string{"[[left]][[red]]Sena:\n[[white]]@hq.han is very talented and skillful programmer\n\n[[center]][[green]][Klick Box]", "[[red]]Sena:\n[[white]]He can code even without LLM and AI Code Generator\n\n[[center]][[green]][Klick Box]"}),
 		},
 		remotePlayers: make(map[string]*object.RemotePlayer),
-		guiChat:       gui.NewChat([]gui.ChatMessage{{"asdasd", "asdasdasdasdsad"}}),
+		guiChat:       gui.NewChat([]gui.ChatMessage{{"startMsg", "Selamat datang, di web ini"}}),
 	}
 }
 
@@ -69,8 +73,6 @@ func (g *Game) Update() error {
 	helper.ResetInputFlag()
 
 	if server.LocalPlayerID != "" {
-		remotePos := server.GetRemotePositions()
-
 		//jalankan sekali saat pertama datachannel open
 		server.OnceOnConnect(func() {
 			log.Println("sudah dikirm boss")
@@ -80,28 +82,41 @@ func (g *Game) Update() error {
 		//kalo ada input dari local
 		g.player.OnLocalPlayerInput(func() {
 			server.SendPosition(g.player.GetX(), g.player.GetY())
+			server.SendChat("asdalskdjaslkd")
 		})
+		//remotePos := server.GetRemotePositions()
+		//for id, pos := range remotePos {
+		//	if rp, ok := g.remotePlayers[id]; ok {
+		//		rp.UpdateAnimation(pos.X, pos.Y)
+		//		rp.SetX(pos.X)
+		//		rp.SetY(pos.Y)
+		//	} else {
+		//		g.remotePlayers[id] = object.NewRemotePlayer(pos.X, pos.Y)
+		//		log.Printf("New remote player %s at (%.2f, %.2f)", id, pos.X, pos.Y)
+		//	}
+		//}
 
-		for id, pos := range remotePos {
-			if rp, ok := g.remotePlayers[id]; ok {
+		server.GetRemotePositionsWithChannel(func(pos server.Position) {
+			if rp, ok := g.remotePlayers[pos.ID]; ok {
 				rp.UpdateAnimation(pos.X, pos.Y)
 				rp.SetX(pos.X)
 				rp.SetY(pos.Y)
 			} else {
-				g.remotePlayers[id] = object.NewRemotePlayer(pos.X, pos.Y)
-				log.Printf("New remote player %s at (%.2f, %.2f)", id, pos.X, pos.Y)
+				g.remotePlayers[pos.ID] = object.NewRemotePlayer(pos.X, pos.Y)
+				log.Printf("New remote player %s at (%.2f, %.2f)", pos.ID, pos.X, pos.Y)
 			}
-		}
+		})
+
 	}
 
 	//hapus player yang kosong jika ada koneksi kematian
-	server.OnRemovePeer(func() {
-		remotePos := server.GetRemotePositions()
-		for id := range g.remotePlayers {
-			if _, exists := remotePos[id]; !exists {
-				delete(g.remotePlayers, id)
-			}
-		}
+	server.OnRemovePeer(func(remoteIDRemoved string) {
+		//remotePos := server.GetRemotePositions()
+		//for id := range g.remotePlayers {
+		//	if _, exists := remotePos[id]; !exists {
+		delete(g.remotePlayers, remoteIDRemoved)
+		//}
+		//}
 	})
 
 	server.GetChat(func(chatID string, chatText string) {
@@ -191,6 +206,9 @@ func (g *Game) Layout(int, int) (int, int) {
 var fontBytes []byte
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	tt, _ := truetype.Parse(fontBytes)
 	face := truetype.NewFace(tt, &truetype.Options{Size: 18})
 	helper.InitText(face, 380, 400, color.White, color.Black, 13)
